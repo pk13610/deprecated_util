@@ -1,0 +1,35 @@
+{
+    "outpath": "%(home)/app/dropbox/Dropbox/SysBackup/autobackup",
+    "settings": [
+        {
+            "name": "user.bash_profile",
+            "path": "%(home)/.bash_profile",
+            "ignore": [".git"],
+            "linkfile": false
+        },
+        {
+            "name": "user.ssh",
+            "path": "%(home)/.ssh",
+            "ignore": [".git"],
+            "linkfile": false
+        },
+        {
+            "name": "user.bin",
+            "path": "%(home)/bin",
+            "ignore": [".git", ".log"],
+            "linkfile": false
+        },
+        {
+            "name": "user.etc",
+            "path": "%(home)/etc",
+            "ignore": [".git", ".log", "log"],
+            "linkfile": false
+        },
+        {
+            "name": "xampp.etc",
+            "path": "/Applications/XAMPP/etc",
+            "ignore": [".git", ".log", "log"],
+            "linkfile": false
+        }
+    ]
+}
