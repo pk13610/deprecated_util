@@ -49,7 +49,7 @@ def zip_dir(dirname, zipfilename, ignore={}, linkfile=True):
             except Exception as e:
                 print e
         if len(link_files) > 0:
-            link_files_sh = os.path.join(dirname, "!_link_files.sh")
+            link_files_sh = os.path.join(dirname, "!recover_link_files.sh")
             open(link_files_sh, "w").writelines(link_files)
             zf.write(link_files_sh, "_link_files.sh")
             os.remove(link_files_sh)
