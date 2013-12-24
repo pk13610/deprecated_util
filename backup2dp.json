@@ -8,6 +8,18 @@
             "linkfile": false
         },
         {
+            "name": "user.zshrc",
+            "path": "%(home)/.zshrc",
+            "ignore": [],
+            "linkfile": false
+        },
+        {
+            "name": "user.sinclude",
+            "path": "%(home)/.sinclude",
+            "ignore": [],
+            "linkfile": true
+        },
+        {
             "name": "user.ssh",
             "path": "%(home)/.ssh",
             "ignore": [".git"],
