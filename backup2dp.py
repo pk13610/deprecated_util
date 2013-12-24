@@ -13,7 +13,6 @@ def zip_file(src, dest):
     zf.write(src, os.path.basename(src))
     zf.close()
 
-
 def zip_dir(dirname, zipfilename, ignore={}, linkfile=True):
     tmp = zipfilename + '!'
     try:
@@ -26,28 +25,39 @@ def zip_dir(dirname, zipfilename, ignore={}, linkfile=True):
                     filelist.append(os.path.join(root, fname))
         zf = zipfile.ZipFile(tmp, "w", zipfile.zlib.DEFLATED)
 
+        link_files = []
         for tar in filelist:
             try:
                 if os.path.islink(tar):
-                    print 'ignore link file: ', tar
+                    # print 'ignore link file: ', tar
+                    link_files.append(
+                        "ln -s %s %s\n"%(
+                            os.readlink(tar).replace(" ", r"\ "), 
+                            tar.replace(" ", r"\ ")
+                        )
+                    )
                     continue
                 arcname = tar[len(dirname):]
                 ignored = False
                 for tt in ignore:
                     if tt in arcname.split('/'):
-                        print 'ignore dir/file file: ', tar
+                        # print 'ignore dir/file file: ', tar
                         ignored = True
                         break
                 if not ignored:
                     zf.write(tar, arcname)
             except Exception as e:
                 print e
+        if len(link_files) > 0:
+            link_files_sh = os.path.join(dirname, "!_link_files.sh")
+            open(link_files_sh, "w").writelines(link_files)
+            zf.write(link_files_sh, "_link_files.sh")
+            os.remove(link_files_sh)
         zf.close()
         os.rename(tmp, zipfilename)
     except Exception as e:
         print e
         os.remove(tmp)
-
 
 def unzip_file(zipfilename, unziptodir):
     if not os.path.exists(unziptodir):
@@ -65,7 +75,6 @@ def unzip_file(zipfilename, unziptodir):
             outfile = open(ext_filename, 'wb')
             outfile.write(zfobj.read(name))
             outfile.close()
-
 
 home = os.environ['HOME']
 curr_time = lambda: strftime("%Y%m%d%H%M%S", localtime())
