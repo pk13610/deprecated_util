@@ -6,12 +6,11 @@ from sys import argv
 import zipfile
 from time import localtime, strftime
 
-
 def zip_file(src, dest):
     if src == dest:
-        raise ValueError(r"src == dest")
+        raise ValueError(r"error! src == dest")
     zf = zipfile.ZipFile(dest, "w", zipfile.zlib.DEFLATED)
-    zf.write(src, os.path.basename(dest))
+    zf.write(src, os.path.basename(src))
     zf.close()
 
 
