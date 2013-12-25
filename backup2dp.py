@@ -2,62 +2,130 @@
 # coding=utf-8
 
 import os
-from sys import argv
 import zipfile
+from sys import argv
 from time import localtime, strftime
 
-def zip_file(src, dest):
-    if src == dest:
-        raise ValueError(r"error! src == dest")
-    zf = zipfile.ZipFile(dest, "w", zipfile.zlib.DEFLATED)
-    zf.write(src, os.path.basename(src))
-    zf.close()
+__all__ = []
 
-def zip_dir(dirname, zipfilename, ignore={}, linkfile=True):
-    tmp = zipfilename + '!'
+def walk(top, topdown=True, onerror=None, followlinks=False):
+    """
+    os.walk() ==> top, dirs, nondirs
+    walk() ==> top, dirs, files, dirlinks, filelinks, others
+    """
+    isfile, islink, join, isdir = os.path.isfile, os.path.islink, os.path.join, os.path.isdir
     try:
-        filelist = []
-        if os.path.isfile(dirname):
-            filelist.append(dirname)
-        else:
-            for root, dirs, files in os.walk(dirname):
-                for fname in files:
-                    filelist.append(os.path.join(root, fname))
-        zf = zipfile.ZipFile(tmp, "w", zipfile.zlib.DEFLATED)
+        names = os.listdir(top)
+    except os.error, os.err:
+        if onerror is not None:
+            onerror(os.err)
+        return
 
-        link_files = []
-        for tar in filelist:
-            try:
-                if os.path.islink(tar):
-                    # print 'ignore link file: ', tar
-                    link_files.append(
-                        "ln -s %s %s\n"%(
-                            os.readlink(tar).replace(" ", r"\ "), 
-                            tar.replace(" ", r"\ ")
-                        )
-                    )
-                    continue
-                arcname = tar[len(dirname):]
-                ignored = False
-                for tt in ignore:
-                    if tt in arcname.split('/'):
-                        # print 'ignore dir/file file: ', tar
-                        ignored = True
-                        break
-                if not ignored:
-                    zf.write(tar, arcname)
-            except Exception as e:
-                print e
-        if len(link_files) > 0:
-            link_files_sh = os.path.join(dirname, "!recover_link_files.sh")
-            open(link_files_sh, "w").writelines(link_files)
-            zf.write(link_files_sh, "_link_files.sh")
-            os.remove(link_files_sh)
-        zf.close()
-        os.rename(tmp, zipfilename)
-    except Exception as e:
-        print e
-        os.remove(tmp)
+    dirs, files, dlns, flns, others = [], [], [], [], []
+    for name in names:
+        fullname = join(top, name)
+        if isdir(fullname):
+            if islink(fullname):
+                dlns.append(name)
+            else:
+                dirs.append(name)
+        elif isfile(fullname):
+            if islink(fullname):
+                flns.append(name)
+            else:
+                files.append(name)
+        else:
+            others.append(name)
+
+    if topdown:
+        yield top, dirs, files, dlns, flns, others
+
+    for name in dirs:
+        for x in walk(join(top, name), topdown, onerror, followlinks):
+            yield x
+
+    if followlinks is True:
+        for dlink in dlns:
+            for x in walk(join(top, dlink), topdown, onerror, followlinks):
+                yield x
+
+    if not topdown:
+        yield top, dirs, files, dlns, flns, others
+
+__all__.append(walk)
+
+
+class backupdir:
+
+    @staticmethod
+    def _walk(top, followlinks):
+        join = os.path.join
+        files, links = [], []
+        for root, ds, fs, dls, fls, ots in walk(top, followlinks):
+            for fn in fs:
+                files.append(join(root, fn))
+            if followlinks is True:
+                for fn in fls:
+                    files.append(join(root, fn))
+
+            for fn in dls:
+                links.append(join(root, fn))
+            for fn in fls:
+                links.append(join(root, fn))
+        return files, links
+
+    @staticmethod
+    def _ignore(top, files, ignores, followlinks):
+        for ignore in ignores:
+            files = filter(lambda f: ignore not in f[len(top):].split("/"), files)
+        return files
+
+    @staticmethod
+    def _create_links_backup_sh(top, links):
+        if len(links) == 0:
+            return
+        tmp = os.path.join(top, "_recover_links.sh")
+        open(tmp, "w").writelines(
+            [
+                "ln -s %s %s\n"%(
+                    os.readlink(x).replace(" ", r"\ "), # cmd with space
+                    x.replace(" ", r"\ ")
+                ) 
+                for x in links
+            ]
+        )
+        return tmp
+
+    @staticmethod
+    def zipit(top, zipfilename, ignores=[], followlinks=False):
+        join, abspath, basename = os.path.join, os.path.abspath, os.path.basename
+        tmp_zip = join(top, zipfilename+"!!")
+        shfile = None
+
+        if os.path.isfile(top):
+            files = [top]
+            top = os.path.dirname(top)
+        else:
+            files, links = backupdir._walk(top, followlinks)
+            files = backupdir._ignore(top, files, ignores, followlinks)
+            shfile = backupdir._create_links_backup_sh(top, links)
+            if shfile:
+                files.append(shfile)
+        try:
+            zf = zipfile.ZipFile(tmp_zip, "w", zipfile.zlib.DEFLATED)
+            for name in files:
+                zf.write(name, name[len(top):])
+            zf.close()
+            os.rename(tmp_zip, zipfilename)
+        except Exception as e:
+            os.remove(tmp_zip)
+            raise e
+        finally:
+            if shfile:
+                os.remove(shfile)
+
+zipit = backupdir.zipit
+__all__.append(zipit)
 
 def unzip_file(zipfilename, unziptodir):
     if not os.path.exists(unziptodir):
@@ -79,7 +147,7 @@ def unzip_file(zipfilename, unziptodir):
 home = os.environ['HOME']
 curr_time = lambda: strftime("%Y%m%d%H%M%S", localtime())
 
-if __name__ == "__main__":
+def main():
     import getopt
     import json
 
@@ -99,9 +167,12 @@ if __name__ == "__main__":
         print name, path, ignore
         if not os.path.isdir(outpath):
             os.mkdir(outpath)
-        if os.path.isdir(path):
-            out = os.path.join(outpath, "d[" + name + "].zip")
-            zip_dir(path, out, ignore, linkfile)
-        if os.path.isfile(path):
-            out = os.path.join(outpath, "f[" + name + "].zip")
-            zip_file(path, out)
+        out = os.path.join(outpath, name+".zip")
+        zipit(path, out, ignore, linkfile)
+
+def test():
+    zipit("/Users/pk/lib", "./test.zip", ["vavava"], False)
+
+if __name__ == "__main__":
+    main()
+    # test()

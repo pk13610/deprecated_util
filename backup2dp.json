@@ -4,7 +4,7 @@
         {
             "name": "user.bash_profile",
             "path": "%(home)/.bash_profile",
-            "ignore": [".git"],
+            "ignore": [],
             "linkfile": false
         },
         {
@@ -22,7 +22,7 @@
         {
             "name": "user.ssh",
             "path": "%(home)/.ssh",
-            "ignore": [".git"],
+            "ignore": [".git", "log"],
             "linkfile": false
         },
         {
@@ -35,6 +35,12 @@
             "name": "user.etc",
             "path": "%(home)/etc",
             "ignore": [".git", ".log", "log"],
+            "linkfile": false
+        },
+        {
+            "name": "user.lib",
+            "path": "%(home)/lib",
+            "ignore": [".git", "log"],
             "linkfile": false
         },
         {
